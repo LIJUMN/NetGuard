@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  syntax:
+    name: syntax and import
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: install deps
+        run: pip install pyyaml pystray pillow
+
+      # PowerShell 5.1 reads .ps1 as GBK when there is no BOM, so a stray
+      # non-ASCII character can silently break parsing. Guard against it.
+      - name: no stray non-ascii in .ps1
+        shell: pwsh
+        run: |
+          $bad = @()
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $bytes = [IO.File]::ReadAllBytes($_.FullName)
+            if (($bytes | Where-Object { $_ -gt 127 }).Count -gt 0) {
+              $bad += $_.FullName
+            }
+          }
+          if ($bad.Count -gt 0) {
+            Write-Error ("non-ascii bytes found in: " + ($bad -join ', '))
+            Write-Host "PowerShell 5.1 reads .ps1 as GBK. Keep these files ASCII."
+            exit 1
+          }
+          Write-Host "all .ps1 are ASCII"
+
+      - name: parse every PowerShell script
+        shell: pwsh
+        run: |
+          $fail = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errs = $null
+            [void][System.Management.Automation.PSParser]::Tokenize(
+              (Get-Content $_.FullName -Raw), [ref]$errs)
+            if ($errs -and $errs.Count) {
+              Write-Host ("FAIL " + $_.Name + ": " + $errs[0].Message)
+              $script:fail = 1
+            } else {
+              Write-Host ("OK   " + $_.Name)
+            }
+          }
+          if ($fail) { exit 1 }
+
+      - name: byte-compile every Python file
+        run: |
+          python -m compileall -q intel tray pipeline
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "all python files compile"
+
+      - name: import the intel layer
+        run: |
+          python -c "import sys; sys.path.insert(0,'.'); from pipeline import paths; paths.ensure_dirs(); print('ROOT =', paths.ROOT)"
+          python intel/report.py
+          python intel/source_intel.py stats
+
+      # config.template.yaml holds {{PROVIDERS}} placeholders, so it is only
+      # valid YAML after pipeline.ps1 substitutes them. Validate it with the
+      # core itself against a real source library.
+      - name: validate the generated core config
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          New-Item -ItemType Directory -Force -Path .\config\subs, .\bin, .\logs | Out-Null
+          # a minimal, valid provider file
+          @'
+          proxies:
+            - name: "seed"
+              type: socks5
+              server: 127.0.0.1
+              port: 1080
+          '@ | Set-Content -Encoding UTF8 .\config\subs\seed.yaml
+
+          $prov = "  seed:`n    type: file`n    path: `"./subs/seed.yaml`"`n    health-check:`n      enable: true`n      url: https://www.google.com/generate_204`n      interval: 300"
+          $use  = "      - seed"
+          $tpl  = Get-Content .\pipeline\config.template.yaml -Raw
+          [IO.File]::WriteAllText("$PWD\config\config.yaml",
+            $tpl.Replace('{{PROVIDERS}}', $prov).Replace('{{PROVIDER_USE}}', $use))
+
+          # fetch the core just for validation
+          $rel = Invoke-RestMethod https://api.github.com/repos/MetaCubeX/mihomo/releases/latest -Headers @{'User-Agent'='NetGuard'}
+          $asset = $rel.assets | Where-Object { $_.name -match 'windows-amd64.*\.zip$' -and $_.name -notmatch 'compatible' } | Select-Object -First 1
+          curl.exe -L -s -o core.zip $asset.browser_download_url
+          Expand-Archive -Path core.zip -DestinationPath .\bin\mihomo -Force
+          $exe = (Get-ChildItem .\bin\mihomo -Filter *.exe | Select-Object -First 1)
+          if ($exe.Name -ne 'mihomo.exe') { Rename-Item $exe.FullName mihomo.exe -Force }
+
+          & .\bin\mihomo\mihomo.exe -d .\bin\mihomo -f .\config\config.yaml -t
+          if ($LASTEXITCODE -ne 0) { Write-Error 'the generated config is invalid'; exit 1 }
+          Write-Host 'generated config is valid'
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: fail if a token is committed
+        run: |
+          if git grep -nIE 'ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{32,}' -- . ':!*.md'; then
+            echo "::error::a credential is committed to this repository"
+            exit 1
+          fi
+          echo "no credentials found"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

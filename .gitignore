@@ -1,0 +1,53 @@
+# ---- fetched at install time, never committed (about 90 MB) ----
+bin/
+!bin/.gitkeep
+
+# ---- generated configuration ----
+config/config.yaml
+config/subs/*.yaml
+config/source_stats.json
+config/source_index.json
+config/node_reputation.json
+config/tray_state.json
+config/alert_state.json
+config/auto_tune.json
+config/pipeline.lock
+config/sources.json.bak
+
+# ---- runtime output ----
+logs/
+reports/
+*.log
+*.tmp
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---- build output ----
+build/
+dist/
+.build/
+*.spec
+*.manifest
+
+# ---- editors / OS ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- secrets: never commit a token ----
+.env
+.env.*
+*.token
+secrets*.json
+
+# ---- node_modules, if you experiment with a GUI wrapper ----
+node_modules/

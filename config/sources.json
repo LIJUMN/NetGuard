@@ -1,0 +1,56 @@
+[
+ {
+  "name": "ermaozi",
+  "url": "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/clash.yml",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed",
+  "note": "high yield in our testing (4-8%), the primary source"
+ },
+ {
+  "name": "tssf_fly",
+  "url": "https://raw.githubusercontent.com/ts-sf/fly/main/clash",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed"
+ },
+ {
+  "name": "freefq",
+  "url": "https://raw.githubusercontent.com/freefq/free/master/v2",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed",
+  "note": "base64 subscription format"
+ },
+ {
+  "name": "pawdroid",
+  "url": "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed",
+  "note": "base64 subscription format"
+ },
+ {
+  "name": "anaer",
+  "url": "https://raw.githubusercontent.com/anaer/Sub/main/clash.yaml",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed"
+ },
+ {
+  "name": "mahdibland_merge",
+  "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge_yaml.yml",
+  "enabled": true,
+  "fails": 0,
+  "added": "seed",
+  "note": "very large (4k+ nodes) but low yield; the dedup pass keeps only what overlaps less than 80%"
+ },
+ {
+  "name": "__your_paid_provider__",
+  "url": "",
+  "enabled": false,
+  "fails": 0,
+  "added": "template",
+  "note": "copy this block, paste your own subscription URL, set enabled to true. NEVER commit a URL that carries a token."
+ }
+]

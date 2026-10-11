@@ -1,0 +1,8 @@
+﻿# Telegram channels that publish free nodes. One per line, @ prefix optional.
+# Harvested into a single rolling pool (tg_pool), judged by overlap before admission.
+v2rayfree
+freeV2ray2
+v2rayfree2
+free_proxy
+V2RAY_FREE
+FreetorVpn

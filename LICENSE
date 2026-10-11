@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 NetGuard contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+IMPORTANT ADDENDUM — please also read DISCLAIMER.md.
+
+The MIT license covers the source code only. It does NOT grant any permission
+to operate proxy servers, to circumvent network restrictions, or to do
+anything that is unlawful in your jurisdiction. Every proxy node reachable
+through this software is operated by a third party whose actions you are
+responsible for. See DISCLAIMER.md section 2.
+
+NOTE ON COMBINED DISTRIBUTIONS: mihomo and clash-speedtest, which this
+project downloads and drives, are licensed GPL-3.0. Any distribution that
+bundles or links them is governed by GPL-3.0 and must comply with its
+source-disclosure requirements, regardless of this file.
+
+MIT 许可证仅涵盖源代码本身。它不授予任何搭建代理服务器、绕过网络限制，
+或实施所在司法辖区所不允许行为的许可。你必须自行承担通过本软件连接的
+第三方代理节点运营者所产生的一切后果。
+
+另请注意：本项目下载并调用的 mihomo 与 clash-speedtest 采用 GPL-3.0 许可。
+任何包含或链接它们的分发行为均受 GPL-3.0 约束，须履行其源码开放义务，
+无论本文件如何规定。

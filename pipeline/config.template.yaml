@@ -1,0 +1,217 @@
+mixed-port: 7890
+socks-port: 7891
+allow-lan: false
+bind-address: 127.0.0.1
+mode: rule
+log-level: warning
+ipv6: false
+unified-delay: true
+tcp-concurrent: true
+find-process-mode: strict
+geodata-mode: true
+geodata-loader: memconservative
+geo-auto-update: false
+external-controller: 127.0.0.1:9090
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+# ---------------------------------------------------------------------------
+# DNS
+#
+# default-nameserver must be domestic or the whole chain stalls: reaching a
+# foreign DoH server requires a proxy, and the proxy needs a hostname first.
+# classic is the reliable core; everything else rides on top of it.
+# ---------------------------------------------------------------------------
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "localhost.ptlogin2.qq.com"
+    - "*.msftconnecttest.com"
+    - "*.msftncsi.com"
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  nameserver:
+    - https://223.5.5.5/dns-query
+    - https://doh.pub/dns-query
+  proxy-server-nameserver:
+    - https://223.5.5.5/dns-query
+  nameserver-policy:
+    "geosite:cn,private":
+      - https://223.5.5.5/dns-query
+      - https://doh.pub/dns-query
+    "geosite:geolocation-!cn":
+      - https://1.1.1.1/dns-query
+      - https://8.8.8.8/dns-query
+
+proxy-providers:
+  fast:
+    type: file
+    path: "./subs/nodes_fast.yaml"
+    health-check:
+      enable: true
+      url: https://www.google.com/generate_204
+      interval: 300
+{{PROVIDERS}}
+
+proxy-groups:
+  # ---- main selector. PROXY is what the rule set sends foreign traffic to.
+  - name: PROXY
+    type: select
+    proxies:
+      - AUTO
+      - FAST
+      - WEB
+      - DOWN
+      - MEDIA
+      - FALLBACK
+      - DIRECT
+    use:
+{{PROVIDER_USE}}
+
+  # ---- AUTO: lowest latency across everything. The safe default.
+  - name: AUTO
+    type: url-test
+    url: https://www.google.com/generate_204
+    interval: 120
+    tolerance: 80
+    lazy: false
+    use:
+{{PROVIDER_USE}}
+
+  # ---- FAST: passed the real bandwidth test in the last pipeline run.
+  - name: FAST
+    type: url-test
+    url: https://www.google.com/generate_204
+    interval: 60
+    tolerance: 50
+    lazy: false
+    use:
+      - fast
+
+  # ---- purpose-built groups -------------------------------------------
+  # A node that is fastest for a small page load is often the wrong choice
+  # for a 700 MB download, and vice versa: bulk transfer rewards sustained
+  # throughput while page loads reward a low first-byte time. So we keep one
+  # group per workload instead of pretending "fastest" is a single number.
+  #
+  # interval is deliberately long here. These groups are for throughput, not
+  # latency -- re-probing every 60s costs bandwidth that the user is trying
+  # to download with.
+
+  # web pages: latency matters most
+  - name: WEB
+    type: url-test
+    url: https://www.google.com/generate_204
+    interval: 300
+    tolerance: 30
+    lazy: true
+    use:
+      - fast
+
+  # bulk downloads: sustained throughput matters most
+  - name: DOWN
+    type: url-test
+    url: https://speed.cloudflare.com/__down?bytes=1000000
+    interval: 600
+    tolerance: 100
+    lazy: true
+    use:
+      - fast
+
+  # streaming: needs to hold a bitrate without dropping frames
+  - name: MEDIA
+    type: url-test
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    lazy: true
+    use:
+      - fast
+
+  # ---- last resort: never empty
+  - name: FALLBACK
+    type: fallback
+    url: https://www.google.com/generate_204
+    interval: 120
+    use:
+{{PROVIDER_USE}}
+
+# ===========================================================================
+# Split routing: domestic traffic goes out directly, foreign traffic via proxy.
+#
+# The rule that does the work is GEOSITE,CN. Measured on this machine it
+# expands to 111,224 entries inside the core -- roughly 111k domestic domains
+# we do NOT have to maintain by hand. The earlier version of this file listed
+# 30 domains by hand and silently sent everything else through a proxy node,
+# which turned every domestic site into a round trip.
+#
+# GEOSITE data ships with the core (bin/mihomo/geosite.dat, ~4 MB) and is
+# refreshed by the bootstrapper, so this stays current without a subscription.
+# ===========================================================================
+rules:
+  # ---- never proxy the obvious
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
+  - IP-CIDR,169.254.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,224.0.0.0/4,DIRECT,no-resolve
+  - IP-CIDR6,::1/128,DIRECT,no-resolve
+  - IP-CIDR6,fc00::/7,DIRECT,no-resolve
+  - IP-CIDR6,fe80::/10,DIRECT,no-resolve
+  - GEOIP,private,DIRECT,no-resolve
+
+  # ---- domestic: direct. this is the rule that matters.
+  - GEOSITE,category-games@cn,DIRECT
+  - GEOSITE,CN,DIRECT
+
+  # ---- domestic accelerators we deliberately do NOT route through a proxy.
+  # These are regional mirrors that are faster than any overseas node could be.
+  - DOMAIN-SUFFIX,gh-proxy.com,DIRECT
+  - DOMAIN-SUFFIX,ghfast.top,DIRECT
+  - DOMAIN-SUFFIX,ghproxy.net,DIRECT
+  - DOMAIN-SUFFIX,ghproxy.cc,DIRECT
+  - DOMAIN-SUFFIX,hf-mirror.com,DIRECT
+  - DOMAIN-SUFFIX,huggingface.co,DIRECT
+  - DOMAIN-SUFFIX,npmmirror.com,DIRECT
+  - DOMAIN-SUFFIX,registry.npmmirror.com,DIRECT
+  - DOMAIN-SUFFIX,pypi.tuna.tsinghua.edu.cn,DIRECT
+  - DOMAIN-SUFFIX,mirrors.aliyun.com,DIRECT
+  - DOMAIN-SUFFIX,mirrors.tuna.tsinghua.edu.cn,DIRECT
+  - DOMAIN-SUFFIX,mirrors.ustc.edu.cn,DIRECT
+  - DOMAIN-SUFFIX,goproxy.cn,DIRECT
+
+  # ---- bulk download hosts get the throughput-tuned group, not the default.
+  # git-lfs and release assets are multi-hundred-megabyte transfers; sending
+  # them through a latency-optimised node wastes the whole point of screening.
+  - DOMAIN-SUFFIX,githubusercontent.com,DOWN
+  - DOMAIN-SUFFIX,github.com,PROXY
+  - DOMAIN-SUFFIX,objects.githubusercontent.com,DOWN
+  - DOMAIN-SUFFIX,release-assets.githubusercontent.com,DOWN
+  - DOMAIN-SUFFIX,gitlab.com,PROXY
+  - DOMAIN-SUFFIX,zenodo.org,DOWN
+  - DOMAIN-SUFFIX,sourceforge.net,DOWN
+
+  # ---- streaming wants stability over raw speed
+  - GEOSITE,youtube,MEDIA
+  - GEOSITE,netflix,MEDIA
+  - GEOSITE,twitter,MEDIA
+  - GEOSITE,telegram,MEDIA
+  - GEOSITE,spotify,MEDIA
+  - GEOSITE,category-media,MEDIA
+
+  # ---- anything blocked at home goes out through the proxy
+  - GEOSITE,category-ads-all,REJECT
+
+  # ---- catch-all by IP, then by the remaining foreign domains
+  - GEOIP,CN,DIRECT
+  - GEOSITE,geolocation-!cn,PROXY
+  - MATCH,PROXY
